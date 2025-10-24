@@ -1,9 +1,14 @@
+
+</html>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flappy Bird -By:LeafZuya</title>
+    <!-- Tambahkan Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -356,6 +361,34 @@
             padding: 5px 10px;
             border-radius: 10px;
         }
+
+        .connection-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 10px;
+            z-index: 5;
+        }
+
+        .online-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .online {
+            background: #4CAF50;
+        }
+
+        .offline {
+            background: #f44336;
+        }
     </style>
 </head>
 <body>
@@ -367,6 +400,10 @@
         </div>
 
         <div class="user-info" id="userInfo"></div>
+        <div class="connection-status" id="connectionStatus">
+            <span class="online-indicator offline" id="onlineIndicator"></span>
+            <span id="connectionText">Offline</span>
+        </div>
 
         <div class="music-control">
             <button id="musicBtn" class="btn-music">🎵</button>
@@ -425,7 +462,8 @@
                 Tekan SPACE atau klik untuk terbang<br>
                 Hindari pipa merah dan tanah<br>
                 <small style="color: #FFD700; margin-top: 10px; display: block;">
-                    🎵 Backsound Wiwok + 🎬 Transisi Video Bahlil!
+                    🎵 Backsound Wiwok + 🎬 Transisi Video Bahlil!<br>
+                    🏆 Leaderboard Online Real-time!
                 </small>
             </div>
         </div>
@@ -443,6 +481,9 @@
             <h1 class="title">Leaderboard</h1>
             <div class="leaderboard-container">
                 <h2 class="leaderboard-title">Top 10 Pemain</h2>
+                <div id="leaderboardStatus" style="color: #FFD700; margin-bottom: 10px; font-size: 0.9rem;">
+                    Loading leaderboard...
+                </div>
                 <div class="leaderboard-list" id="leaderboardList">
                     <!-- Leaderboard akan diisi oleh JavaScript -->
                 </div>
@@ -453,48 +494,59 @@
 
     <script>
         // =======================
-        // USER MANAGEMENT SYSTEM
+        // FIREBASE CONFIGURATION - ONLINE LEADERBOARD
         // =======================
-        const USER_STORAGE_KEY = 'flappyBirdUsers';
-        const LEADERBOARD_STORAGE_KEY = 'flappyBirdLeaderboard';
+        
+        // 🔥 CONFIG FIREBASE ANDA
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIjChzkl47VERuLIIVKbwa1y7Ygx40Olc",
+            authDomain: "leafzuya.firebaseapp.com",
+            databaseURL: "https://leafzuya-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "leafzuya",
+            storageBucket: "leafzuya.firebasestorage.app",
+            messagingSenderId: "808364144065",
+            appId: "1:808364144065:web:6bcf48794fe45cd0452b40"
+        };
+
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log("Firebase berhasil diinisialisasi");
+        } catch (error) {
+            console.error("Error inisialisasi Firebase:", error);
+        }
+
+        const database = firebase.database();
+
+        // =======================
+        // USER MANAGEMENT SYSTEM DENGAN FIREBASE
+        // =======================
+        const LOCAL_USERS_KEY = 'flappyBirdUsers';
         const CURRENT_USER_KEY = 'flappyBirdCurrentUser';
 
-        // Initialize storage if not exists
+        // Initialize local storage
         function initializeStorage() {
-            if (!localStorage.getItem(USER_STORAGE_KEY)) {
-                localStorage.setItem(USER_STORAGE_KEY, JSON.stringify([]));
-            }
-            if (!localStorage.getItem(LEADERBOARD_STORAGE_KEY)) {
-                localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify([]));
+            if (!localStorage.getItem(LOCAL_USERS_KEY)) {
+                localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify([]));
             }
         }
 
-        // Get all users
-        function getUsers() {
-            return JSON.parse(localStorage.getItem(USER_STORAGE_KEY)) || [];
+        // Get all users from local storage
+        function getLocalUsers() {
+            return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY)) || [];
         }
 
-        // Save users
-        function saveUsers(users) {
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(users));
+        // Save users to local storage
+        function saveLocalUsers(users) {
+            localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
         }
 
-        // Get leaderboard
-        function getLeaderboard() {
-            return JSON.parse(localStorage.getItem(LEADERBOARD_STORAGE_KEY)) || [];
-        }
-
-        // Save leaderboard
-        function saveLeaderboard(leaderboard) {
-            localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(leaderboard));
-        }
-
-        // Get current user
+        // Get current user from local storage
         function getCurrentUser() {
             return JSON.parse(localStorage.getItem(CURRENT_USER_KEY)) || null;
         }
 
-        // Set current user
+        // Set current user to local storage
         function setCurrentUser(user) {
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
         }
@@ -504,9 +556,9 @@
             localStorage.removeItem(CURRENT_USER_KEY);
         }
 
-        // Register new user
+        // Register new user (local storage only)
         function registerUser(username, password) {
-            const users = getUsers();
+            const users = getLocalUsers();
             
             // Check if username already exists
             if (users.find(user => user.username === username)) {
@@ -516,19 +568,19 @@
             // Add new user
             const newUser = {
                 username,
-                password, // In a real app, this should be hashed
+                password, // Note: In real app, hash this password
                 createdAt: new Date().toISOString()
             };
             
             users.push(newUser);
-            saveUsers(users);
+            saveLocalUsers(users);
             
             return { success: true, message: 'Pendaftaran berhasil' };
         }
 
-        // Login user
+        // Login user (local storage only)
         function loginUser(username, password) {
-            const users = getUsers();
+            const users = getLocalUsers();
             const user = users.find(user => user.username === username && user.password === password);
             
             if (user) {
@@ -539,36 +591,115 @@
             }
         }
 
-        // Update leaderboard with new score
-        function updateLeaderboard(username, score) {
-            const leaderboard = getLeaderboard();
-            const existingEntryIndex = leaderboard.findIndex(entry => entry.username === username);
-            
-            if (existingEntryIndex !== -1) {
-                // Update if new score is higher
-                if (score > leaderboard[existingEntryIndex].score) {
-                    leaderboard[existingEntryIndex].score = score;
-                    leaderboard[existingEntryIndex].updatedAt = new Date().toISOString();
-                }
-            } else {
-                // Add new entry
-                leaderboard.push({
-                    username,
-                    score,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+        // =======================
+        // FIREBASE LEADERBOARD FUNCTIONS - ONLINE!
+        // =======================
+
+        // Submit score to Firebase (Online)
+        async function submitScoreToFirebase(username, score) {
+            try {
+                const scoreData = {
+                    username: username,
+                    score: score,
+                    timestamp: Date.now(),
+                    date: new Date().toLocaleDateString('id-ID')
+                };
+                
+                // Push to Firebase database
+                const newScoreRef = database.ref('scores').push();
+                await newScoreRef.set(scoreData);
+                
+                console.log('Score berhasil disimpan ke Firebase');
+                updateConnectionStatus(true);
+                return true;
+            } catch (error) {
+                console.error('Error menyimpan score ke Firebase:', error);
+                updateConnectionStatus(false);
+                return false;
+            }
+        }
+
+        // Get leaderboard from Firebase (Online)
+        function getLeaderboardFromFirebase(callback) {
+            database.ref('scores')
+                .orderByChild('score')
+                .limitToLast(50) // Ambil 50 data terbaru untuk diolah
+                .once('value')
+                .then((snapshot) => {
+                    const scores = [];
+                    snapshot.forEach((childSnapshot) => {
+                        const scoreData = childSnapshot.val();
+                        scores.push(scoreData);
+                    });
+                    
+                    // Group by username and keep highest score
+                    const userBestScores = {};
+                    scores.forEach(score => {
+                        if (!userBestScores[score.username] || score.score > userBestScores[score.username].score) {
+                            userBestScores[score.username] = score;
+                        }
+                    });
+                    
+                    // Convert to array and sort by score (descending)
+                    const leaderboard = Object.values(userBestScores)
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 10); // Top 10 only
+                    
+                    callback(leaderboard);
+                    updateConnectionStatus(true);
+                })
+                .catch((error) => {
+                    console.error('Error mengambil leaderboard:', error);
+                    callback([]);
+                    updateConnectionStatus(false);
                 });
+        }
+
+        // Real-time leaderboard listener
+        function startRealTimeLeaderboard() {
+            database.ref('scores')
+                .orderByChild('score')
+                .limitToLast(50)
+                .on('value', (snapshot) => {
+                    const scores = [];
+                    snapshot.forEach((childSnapshot) => {
+                        const scoreData = childSnapshot.val();
+                        scores.push(scoreData);
+                    });
+                    
+                    // Group by username and keep highest score
+                    const userBestScores = {};
+                    scores.forEach(score => {
+                        if (!userBestScores[score.username] || score.score > userBestScores[score.username].score) {
+                            userBestScores[score.username] = score;
+                        }
+                    });
+                    
+                    // Convert to array and sort by score (descending)
+                    const leaderboard = Object.values(userBestScores)
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 10);
+                    
+                    renderOnlineLeaderboard(leaderboard);
+                    updateConnectionStatus(true);
+                }, (error) => {
+                    console.error('Error real-time leaderboard:', error);
+                    updateConnectionStatus(false);
+                });
+        }
+
+        // Update connection status
+        function updateConnectionStatus(isConnected) {
+            const indicator = document.getElementById('onlineIndicator');
+            const text = document.getElementById('connectionText');
+            
+            if (isConnected) {
+                indicator.className = 'online-indicator online';
+                text.textContent = 'Online';
+            } else {
+                indicator.className = 'online-indicator offline';
+                text.textContent = 'Offline';
             }
-            
-            // Sort by score (descending)
-            leaderboard.sort((a, b) => b.score - a.score);
-            
-            // Keep only top 100 entries
-            if (leaderboard.length > 100) {
-                leaderboard.splice(100);
-            }
-            
-            saveLeaderboard(leaderboard);
         }
 
         // =======================
@@ -587,6 +718,7 @@
         const logoutBtn = document.getElementById('logoutBtn');
         const backBtn = document.getElementById('backBtn');
         const leaderboardList = document.getElementById('leaderboardList');
+        const leaderboardStatus = document.getElementById('leaderboardStatus');
         const userInfo = document.getElementById('userInfo');
 
         // Show login screen
@@ -609,6 +741,9 @@
             if (currentUser) {
                 userInfo.textContent = `Halo, ${currentUser.username}`;
             }
+            
+            // Start real-time leaderboard updates
+            startRealTimeLeaderboard();
         }
 
         // Show leaderboard screen
@@ -618,32 +753,30 @@
             gameOverScreen.classList.add('hidden');
             leaderboardScreen.classList.remove('hidden');
             
-            renderLeaderboard();
+            leaderboardStatus.textContent = 'Loading leaderboard...';
+            getLeaderboardFromFirebase(renderOnlineLeaderboard);
         }
 
-        // Render leaderboard
-        function renderLeaderboard() {
-            const leaderboard = getLeaderboard();
+        // Render online leaderboard
+        function renderOnlineLeaderboard(onlineScores) {
             const currentUser = getCurrentUser();
             
             leaderboardList.innerHTML = '';
+            leaderboardStatus.textContent = `Leaderboard Online (${onlineScores.length} pemain)`;
             
-            if (leaderboard.length === 0) {
-                leaderboardList.innerHTML = '<div style="color: white; text-align: center;">Belum ada data</div>';
+            if (onlineScores.length === 0) {
+                leaderboardList.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">Belum ada data leaderboard</div>';
                 return;
             }
             
-            // Show top 10
-            const top10 = leaderboard.slice(0, 10);
-            
-            top10.forEach((entry, index) => {
+            onlineScores.forEach((score, index) => {
                 const item = document.createElement('div');
-                item.className = `leaderboard-item ${entry.username === currentUser.username ? 'current-user' : ''}`;
+                item.className = `leaderboard-item ${currentUser && score.username === currentUser.username ? 'current-user' : ''}`;
                 
                 item.innerHTML = `
                     <div class="rank">${index + 1}</div>
-                    <div class="username">${entry.username}</div>
-                    <div class="score-value">${entry.score}</div>
+                    <div class="username">${score.username}</div>
+                    <div class="score-value">${score.score}</div>
                 `;
                 
                 leaderboardList.appendChild(item);
@@ -695,6 +828,8 @@
             if (result.success) {
                 setTimeout(() => {
                     loginMessage.textContent = 'Silakan login dengan akun baru Anda';
+                    usernameInput.value = '';
+                    passwordInput.value = '';
                 }, 1000);
             }
         });
@@ -718,7 +853,7 @@
         }
 
         // =======================
-        // GAME VARIABLES
+        // GAME VARIABLES (SISA KODE GAME TIDAK DIUBAH)
         // =======================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -751,11 +886,9 @@
         let videoDuration = 0;
         let videoCurrentTime = 0;
         let videoTimerInterval = null;
-        let selectedBirdType = 'default'; // Default bird
+        let selectedBirdType = 'default';
 
-        // =======================
-        // BIRD TYPES - 6 VARIASI BURUNG
-        // =======================
+        // Bird Types
         const BIRD_TYPES = {
             default: { emoji: '🐦', name: 'Burung Biasa', color: '#FFD700', wingColor: '#FFA500' },
             eagle: { emoji: '🦅', name: 'Elang', color: '#8B4513', wingColor: '#654321' },
@@ -765,27 +898,18 @@
             flamingo: { emoji: '🦩', name: 'Flamingo', color: '#FF69B4', wingColor: '#FFB6C1' }
         };
 
-        // =======================
-        // VIDEO TRANSITION SYSTEM - CUSTOM ASSETS
-        // =======================
+        // Video URLs
         const VIDEO_URLS = {
             10: "Bahlil.mp4",
-            50: "You.mp4",
+            50: "You.mp4", 
             100: "Bisa.mp4"
         };
 
-        // =======================
-        // MUSIC SYSTEM - CUSTOM BACKSOUND
-        // =======================
-        const MUSIC_URLS = [
-            "Wiwok.mp3"
-        ];
-
+        // Music
+        const MUSIC_URLS = ["Wiwok.mp3"];
         const CURRENT_MUSIC_URL = MUSIC_URLS[0];
 
-        // =======================
-        // BIRD SELECTION SYSTEM
-        // =======================
+        // Bird Selection
         function initBirdSelection() {
             birdSelection.innerHTML = '';
             
@@ -798,25 +922,18 @@
                 `;
                 
                 birdOption.addEventListener('click', () => {
-                    // Remove selected class from all options
                     document.querySelectorAll('.bird-option').forEach(opt => {
                         opt.classList.remove('selected');
                     });
-                    
-                    // Add selected class to clicked option
                     birdOption.classList.add('selected');
                     selectedBirdType = birdId;
-                    
-                    console.log(`Burung dipilih: ${birdData.name}`);
                 });
                 
                 birdSelection.appendChild(birdOption);
             }
         }
 
-        // =======================
-        // BIRD PROPERTIES - DIPERBARUI DENGAN VARIASI
-        // =======================
+        // Bird Object
         const bird = {
             x: 50,
             y: canvas.height / 2,
@@ -836,25 +953,21 @@
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
                 
-                // Body (warna sesuai jenis burung)
                 ctx.fillStyle = birdData.color;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Wing (warna sayap sesuai jenis burung)
                 ctx.fillStyle = birdData.wingColor;
                 ctx.beginPath();
                 ctx.ellipse(-8, 2, 10, 8, Math.PI/4, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Eye
                 ctx.fillStyle = 'black';
                 ctx.beginPath();
                 ctx.arc(8, -4, 3, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Beak (warna berbeda untuk beberapa burung)
                 ctx.fillStyle = this.type === 'eagle' ? '#FF4500' : '#FF8C00';
                 ctx.beginPath();
                 ctx.moveTo(12, 0);
@@ -863,9 +976,7 @@
                 ctx.closePath();
                 ctx.fill();
                 
-                // Special features untuk burung tertentu
                 if (this.type === 'owl') {
-                    // Cincin mata burung hantu
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
                     ctx.arc(8, -4, 5, 0, Math.PI * 2);
@@ -878,7 +989,6 @@
                 }
                 
                 if (this.type === 'penguin') {
-                    // Perut pinguin
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
                     ctx.ellipse(0, 5, this.width/3, this.height/3, 0, 0, Math.PI * 2);
@@ -886,7 +996,6 @@
                 }
                 
                 if (this.type === 'flamingo') {
-                    // Kaki flamingo
                     ctx.fillStyle = '#FF69B4';
                     ctx.fillRect(-5, 12, 3, 8);
                     ctx.fillRect(2, 12, 3, 8);
@@ -899,7 +1008,6 @@
                 if (isInTransition) return;
                 
                 this.velocity += this.gravity;
-                
                 if (this.velocity > this.maxFallSpeed) {
                     this.velocity = this.maxFallSpeed;
                 }
@@ -928,13 +1036,11 @@
                 this.y = canvas.height / 2;
                 this.velocity = 0;
                 this.rotation = 0;
-                this.type = selectedBirdType; // Set jenis burung yang dipilih
+                this.type = selectedBirdType;
             }
         };
 
-        // =======================
-        // VIDEO TRANSITION FUNCTIONS
-        // =======================
+        // Video Transition Functions (tetap sama)
         function checkForTransition() {
             for (const threshold of transitionScores) {
                 if (score >= threshold && !completedTransitions.includes(threshold)) {
@@ -947,8 +1053,6 @@
         }
 
         function startVideoTransition(scoreThreshold) {
-            console.log(`Memulai transisi video untuk score ${scoreThreshold}`);
-            
             isInTransition = true;
             isVideoActuallyPlaying = false;
             videoTransition.classList.add('active');
@@ -961,15 +1065,12 @@
             transitionVideo.muted = false;
             transitionVideo.volume = 0.7;
             
-            // Reset timer info
             videoTimer.textContent = "Loading video...";
             videoDuration = 0;
             videoCurrentTime = 0;
             
-            // Event listeners untuk video
             transitionVideo.addEventListener('loadedmetadata', function() {
                 videoDuration = transitionVideo.duration;
-                console.log(`Durasi video: ${videoDuration} detik`);
                 updateVideoTimer();
             });
             
@@ -979,29 +1080,24 @@
             });
             
             transitionVideo.addEventListener('ended', function() {
-                console.log("Video selesai secara natural");
                 endVideoTransition();
             });
             
             transitionVideo.addEventListener('error', function(e) {
-                console.log("Error video:", e);
                 videoTimer.textContent = "Video error!";
                 setTimeout(() => {
                     endVideoTransition();
                 }, 2000);
             });
             
-            // Coba play video
             const playPromise = transitionVideo.play();
             
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    console.log("Video berhasil diputar");
                     isVideoActuallyPlaying = true;
                     stopBackgroundMusic();
                     startVideoTimer();
                 }).catch(error => {
-                    console.log("Gagal memutar video:", error);
                     isVideoActuallyPlaying = false;
                     videoTimer.textContent = "Klik untuk play";
                     
@@ -1044,8 +1140,6 @@
         }
 
         function endVideoTransition() {
-            console.log("Mengakhiri transisi video");
-            
             if (videoTimerInterval) {
                 clearInterval(videoTimerInterval);
                 videoTimerInterval = null;
@@ -1053,11 +1147,6 @@
             
             transitionVideo.pause();
             transitionVideo.currentTime = 0;
-            
-            transitionVideo.removeEventListener('loadedmetadata', null);
-            transitionVideo.removeEventListener('timeupdate', null);
-            transitionVideo.removeEventListener('ended', null);
-            transitionVideo.removeEventListener('error', null);
             
             videoTransition.classList.remove('active');
             isInTransition = false;
@@ -1099,9 +1188,7 @@
             return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        // =======================
-        // MUSIC SYSTEM
-        // =======================
+        // Music System
         let musicEnabled = true;
         let backgroundMusic = null;
 
@@ -1161,9 +1248,7 @@
             }
         }
 
-        // =======================
-        // PIPE CLASS (Tetap sama)
-        // =======================
+        // Pipe Class
         class Pipe {
             constructor() {
                 this.width = 60;
@@ -1228,9 +1313,7 @@
             }
         }
 
-        // =======================
-        // CLOUD & TREE CLASSES (Tetap sama)
-        // =======================
+        // Cloud & Tree Classes
         class Cloud {
             constructor() {
                 this.x = canvas.width + Math.random() * 100;
@@ -1287,9 +1370,7 @@
             }
         }
 
-        // =======================
-        // GAME FUNCTIONS
-        // =======================
+        // Game Functions
         function initBackground() {
             clouds = [];
             trees = [];
@@ -1350,10 +1431,10 @@
             gameOverScreen.classList.remove('hidden');
             stopBackgroundMusic();
             
-            // Update leaderboard dengan score baru
+            // Submit score to Firebase (Online!)
             const currentUser = getCurrentUser();
-            if (currentUser) {
-                updateLeaderboard(currentUser.username, score);
+            if (currentUser && score > 0) {
+                submitScoreToFirebase(currentUser.username, score);
             }
         }
 
@@ -1391,9 +1472,7 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // =======================
-        // EVENT LISTENERS
-        // =======================
+        // Event Listeners
         startBtn.addEventListener('click', startGame);
         restartBtn.addEventListener('click', startGame);
         menuBtn.addEventListener('click', () => {
@@ -1434,16 +1513,16 @@
         // INITIALIZE GAME
         // =======================
         initializeStorage();
-        initBirdSelection(); // Initialize bird selection
+        initBirdSelection();
         initBackground();
         drawBackground();
         bird.draw();
         checkLoginStatus();
 
-        console.log("🎮 Flappy Bird Lengkap dengan Login & Leaderboard!");
+        console.log("🎮 Flappy Bird dengan Leaderboard Online!");
+        console.log("🔥 Terhubung dengan Firebase Realtime Database");
+        console.log("🏆 Leaderboard bisa dilihat oleh semua pemain");
         console.log("🐦 6 Variasi burung tersedia");
-        console.log("👤 Sistem login dengan localStorage");
-        console.log("🏆 Leaderboard online tersimpan di browser");
     </script>
 </body>
 </html>
