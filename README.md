@@ -5,60 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leafpy Bird</title>
     <style>
-        /* Semua kode CSS yang sudah ada tetap sama */
         * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #1a6c2a, #1f8bb2, #2dfdd8);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            color: white;
-        }
-        
-        /* Semua kode CSS yang sudah ada tetap sama */
-        /* ... */
-        
-        /* Tambahkan style untuk kontrol audio */
-        .audio-control {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(30, 30, 60, 0.85);
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 1000;
-            border: 2px solid #ffcc00;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-        
-        .audio-control:hover {
-            transform: scale(1.1);
-        }
-        
-        .audio-control.muted {
-            background: rgba(255, 0, 0, 0.7);
-        }
-        
-        .audio-icon {
-            font-size: 24px;
-            color: white;
-        }
-        {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -748,6 +695,38 @@
             }
         }
         
+        /* Tambahkan style untuk kontrol audio */
+        .audio-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(30, 30, 60, 0.85);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            border: 2px solid #ffcc00;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .audio-control:hover {
+            transform: scale(1.1);
+        }
+        
+        .audio-control.muted {
+            background: rgba(255, 0, 0, 0.7);
+        }
+        
+        .audio-icon {
+            font-size: 24px;
+            color: white;
+        }
+        
         @media (max-width: 768px) {
             .game-container {
                 flex-direction: column;
@@ -828,12 +807,11 @@
                     <div class="leaderboard-list" id="leaderboardList">
                         <div class="leaderboard-item">Loading leaderboard...</div>
                     </div>
-                    <div id="nameInputSection" style="display: none;">
+                    <div id="nameInputSection">
                         <input type="text" class="player-name-input" id="playerNameInput" placeholder="Masukkan nama Anda (2-15 karakter)" maxlength="15">
-                        <button class="leaderboard-button name-submit-button" id="submitName">Submit & Aktifkan Auto-Save</button>
+                        <button class="leaderboard-button name-submit-button" id="submitName">Daftar & Aktifkan Leaderboard</button>
                     </div>
-                    <div class="leaderboard-buttons" id="leaderboardButtons">
-                        <button class="leaderboard-button" id="toggleAutoSubmit">🔒 Auto-Save: OFF</button>
+                    <div class="leaderboard-buttons" id="leaderboardButtons" style="display: none;">
                         <button class="leaderboard-button" id="refreshLeaderboard">🔄 Refresh</button>
                     </div>
                     <div style="text-align: center; margin-top: 10px; font-size: 0.8rem; color: #cccccc;">
@@ -1145,7 +1123,7 @@
         }
         
         // =============================================
-        // FUNGSI LEADERBOARD BARU (AUTO-SAVE & AUTO-LOAD)
+        // FUNGSI LEADERBOARD YANG DIPERBAIKI
         // =============================================
         
         // Generate unique player ID
@@ -1157,7 +1135,7 @@
         
         // Auto submit score when high score changes
         async function autoSubmitScore() {
-            if (!leaderboardInitialized || !autoSubmitEnabled || !playerName) return;
+            if (!leaderboardInitialized || !playerName) return;
             
             const highScore = getHighScore();
             if (highScore === 0) return;
@@ -1173,39 +1151,6 @@
                 loadLeaderboard(); // Refresh leaderboard setelah submit
             } catch (error) {
                 console.error('Error auto-submitting score:', error);
-            }
-        }
-        
-        // Manual submit score to leaderboard
-        async function submitScoreToLeaderboard() {
-            if (!leaderboardInitialized) {
-                alert('Leaderboard offline. Firebase tidak terinisialisasi.');
-                return;
-            }
-            
-            if (!playerName) {
-                showNameInput();
-                return;
-            }
-            
-            const highScore = getHighScore();
-            if (highScore === 0) {
-                alert('Anda belum memiliki high score!');
-                return;
-            }
-            
-            try {
-                await db.collection('leaderboard').doc(playerId).set({
-                    name: playerName,
-                    score: highScore,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                alert(`Skor ${highScore} berhasil dikirim ke leaderboard!`);
-                loadLeaderboard();
-            } catch (error) {
-                console.error('Error submitting score:', error);
-                alert('Error mengirim skor. Coba lagi nanti.');
             }
         }
         
@@ -1324,24 +1269,8 @@
             // Auto submit score after setting name
             setTimeout(() => {
                 autoSubmitScore();
-                alert(`Selamat datang ${playerName}! Skor Anda akan otomatis tersimpan.`);
+                alert(`Selamat datang ${playerName}! Skor Anda akan otomatis tersimpan di leaderboard.`);
             }, 500);
-        }
-        
-        // Toggle auto-submit
-        function toggleAutoSubmit() {
-            autoSubmitEnabled = !autoSubmitEnabled;
-            localStorage.setItem('leafpyBirdAutoSubmit', autoSubmitEnabled.toString());
-            
-            const button = document.getElementById('toggleAutoSubmit');
-            if (autoSubmitEnabled) {
-                button.textContent = '🔒 Auto-Save: ON';
-                button.style.background = 'linear-gradient(to bottom, #4CAF50, #2E7D32)';
-                autoSubmitScore(); // Submit immediately when enabling
-            } else {
-                button.textContent = '🔓 Auto-Save: OFF';
-                button.style.background = 'linear-gradient(to bottom, #ff4444, #cc0000)';
-            }
         }
         
         // =============================================
@@ -1366,7 +1295,7 @@
             localStorage.setItem('leafpyBirdData', JSON.stringify(gameData));
             
             // AUTO SUBMIT TO LEADERBOARD JIKA HIGH SCORE BERUBAH
-            if (leaderboardInitialized && autoSubmitEnabled && playerName) {
+            if (leaderboardInitialized && playerName) {
                 const oldHighScore = getHighScore();
                 const newHighScore = Math.max(score, oldHighScore);
                 
@@ -1416,24 +1345,6 @@
                 if (gameData.playerStats) {
                     playerStats = gameData.playerStats;
                 }
-                
-                // Load auto-submit setting
-                const savedAutoSubmit = localStorage.getItem('leafpyBirdAutoSubmit');
-                autoSubmitEnabled = savedAutoSubmit === 'true';
-                
-                // Update toggle button state
-                setTimeout(() => {
-                    const button = document.getElementById('toggleAutoSubmit');
-                    if (button) {
-                        if (autoSubmitEnabled) {
-                            button.textContent = '🔒 Auto-Save: ON';
-                            button.style.background = 'linear-gradient(to bottom, #4CAF50, #2E7D32)';
-                        } else {
-                            button.textContent = '🔓 Auto-Save: OFF';
-                            button.style.background = 'linear-gradient(to bottom, #ff4444, #cc0000)';
-                        }
-                    }
-                }, 100);
                 
                 // Check for daily and weekly resets
                 checkForReset();
@@ -1501,10 +1412,8 @@
                     renderShopItems('birds');
                 }
                 
-                // Update leaderboard button
-                const button = document.getElementById('toggleAutoSubmit');
-                button.textContent = '🔓 Auto-Save: OFF';
-                button.style.background = 'linear-gradient(to bottom, #ff4444, #cc0000)';
+                // Tampilkan form nama lagi
+                showNameInput();
                 
                 alert('Data berhasil direset!');
             }
@@ -1540,7 +1449,6 @@
             convertToCoinButton.addEventListener('click', convertToCoin);
             
             // Leaderboard event listeners
-            document.getElementById('toggleAutoSubmit').addEventListener('click', toggleAutoSubmit);
             document.getElementById('refreshLeaderboard').addEventListener('click', loadLeaderboard);
             document.getElementById('submitName').addEventListener('click', submitPlayerName);
             
@@ -1594,9 +1502,14 @@
             setTimeout(() => {
                 loadLeaderboard();
                 
-                // Auto-submit jika sudah ada nama dan high score
-                if (playerName && getHighScore() > 0) {
-                    setTimeout(autoSubmitScore, 2000);
+                // Jika sudah ada nama, sembunyikan form input
+                if (playerName) {
+                    hideNameInput();
+                    
+                    // Auto-submit jika sudah ada nama dan high score
+                    if (getHighScore() > 0) {
+                        setTimeout(autoSubmitScore, 2000);
+                    }
                 }
             }, 1500);
             
